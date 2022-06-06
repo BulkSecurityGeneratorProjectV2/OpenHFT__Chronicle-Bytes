@@ -138,7 +138,8 @@ public class NativeBytesStore<U>
     @NotNull
     private static NativeBytesStore<Void> of(@NonNegative long capacity, boolean zeroOut, boolean elastic)
             throws IllegalArgumentException {
-        if (capacity <= 0)
+        requireNonNegative(capacity);
+        if (capacity == 0)
             return new NativeBytesStore<>(NoBytesStore.NO_PAGE, 0, null, elastic);
         Memory memory = OS.memory();
         long address = memory.allocate(capacity);

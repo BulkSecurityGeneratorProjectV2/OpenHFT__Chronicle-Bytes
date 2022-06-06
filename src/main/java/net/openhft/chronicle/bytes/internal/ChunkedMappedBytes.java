@@ -369,8 +369,7 @@ public class ChunkedMappedBytes extends CommonMappedBytes {
 
     @NotNull
     @Override
-    public Bytes<Void> clear()
-            throws IllegalStateException {
+    protected Bytes<Void> clear0() {
         readPosition = 0L;
         uncheckedWritePosition(0L);
         writeLimit = mappedFile.capacity();

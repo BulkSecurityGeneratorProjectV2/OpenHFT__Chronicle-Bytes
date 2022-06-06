@@ -17,6 +17,7 @@
  */
 package net.openhft.chronicle.bytes;
 
+import net.openhft.chronicle.assertions.AssertUtil;
 import net.openhft.chronicle.bytes.internal.*;
 import net.openhft.chronicle.bytes.internal.migration.HashCodeEqualsUtil;
 import net.openhft.chronicle.bytes.util.DecoratedBufferOverflowException;
@@ -75,22 +76,24 @@ public abstract class AbstractBytes<U>
     AbstractBytes(@NotNull BytesStore<Bytes<U>, U> bytesStore, @NonNegative long writePosition, @NonNegative long writeLimit, String name)
             throws IllegalStateException {
         super(bytesStore.isDirectMemory());
-        this.bytesStore(bytesStore);
-        bytesStore.reserve(this);
+        this.bytesStore = requireNonNull(bytesStore);
         readPosition = bytesStore.readPosition();
-        this.uncheckedWritePosition(writePosition);
+        this.writePosition = writePosition;
         this.writeLimit = writeLimit;
         // used for debugging
         this.name = name;
+        bytesStore.reserve(this);
     }
 
     @Override
     public boolean isDirectMemory() {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         return bytesStore.isDirectMemory();
     }
 
     @Override
     public boolean canReadDirect(@NonNegative long length) {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long remaining = writePosition() - readPosition;
         return bytesStore.isDirectMemory() && remaining >= length;
     }
@@ -98,6 +101,7 @@ public abstract class AbstractBytes<U>
     @Override
     public void move(@NonNegative long from, @NonNegative long to, @NonNegative long length)
             throws BufferUnderflowException, IllegalStateException, ArithmeticException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long start = start();
         bytesStore.move(from - start, to - start, length);
     }
@@ -106,6 +110,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> compact()
             throws IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long start = start();
         long readRemaining = readRemaining();
         try {
@@ -124,6 +129,7 @@ public abstract class AbstractBytes<U>
     @NotNull
     public Bytes<U> clear()
             throws IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long start = start();
         readPosition = start;
         uncheckedWritePosition(start);
@@ -135,6 +141,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> clearAndPad(@NonNegative long length)
             throws BufferOverflowException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         final long start = start();
         if ((start + length) > capacity()) {
             throw newBOERange(start, length, "clearAndPad failed. Start: %d + length: %d > capacity: %d", capacity());
@@ -148,21 +155,25 @@ public abstract class AbstractBytes<U>
 
     @Override
     public long readLimit() {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return writePosition();
     }
 
     @Override
     public long writeLimit() {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return writeLimit;
     }
 
     @Override
     public @NonNegative long realCapacity() {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         return bytesStore.capacity();
     }
 
     @Override
     public boolean canWriteDirect(@NonNegative long count) {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return isDirectMemory() &&
                 Math.min(writeLimit, bytesStore.realCapacity())
                         >= count + writePosition();
@@ -171,34 +182,40 @@ public abstract class AbstractBytes<U>
     @NonNegative
     @Override
     public long capacity() {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         return bytesStore.capacity();
     }
 
     @Nullable
     @Override
     public U underlyingObject() {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return bytesStore.underlyingObject();
     }
 
     @NonNegative
     @Override
     public long start() {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return bytesStore.start();
     }
 
     @Override
     public @NonNegative long readPosition() {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return readPosition;
     }
 
     @Override
     public @NonNegative long writePosition() {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return writePosition;
     }
 
     @Override
     public boolean compareAndSwapInt(@NonNegative long offset, int expected, int value)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         writeCheckOffset(offset, 4);
         return bytesStore.compareAndSwapInt(offset, expected, value);
     }
@@ -206,6 +223,7 @@ public abstract class AbstractBytes<U>
     @Override
     public void testAndSetInt(@NonNegative long offset, int expected, int value)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         writeCheckOffset(offset, 4);
         bytesStore.testAndSetInt(offset, expected, value);
     }
@@ -213,6 +231,7 @@ public abstract class AbstractBytes<U>
     @Override
     public boolean compareAndSwapLong(@NonNegative long offset, long expected, long value)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         writeCheckOffset(offset, 8);
         return bytesStore.compareAndSwapLong(offset, expected, value);
     }
@@ -220,6 +239,7 @@ public abstract class AbstractBytes<U>
     @Override
     public @NotNull AbstractBytes<U> append(double d)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         boolean fits = canWriteDirect(380);
         double ad = Math.abs(d);
         if (ad < 1e-18) {
@@ -243,6 +263,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> readPosition(@NonNegative long position)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         if (position < start()) {
             throw new DecoratedBufferUnderflowException(String.format("readPosition failed. Position: %d < start: %d", position, start()));
         }
@@ -258,6 +279,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> readLimit(@NonNegative long limit)
             throws BufferUnderflowException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         if (limit < start())
             throw limitLessThanStart(limit);
 
@@ -280,6 +302,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writePosition(@NonNegative long position)
             throws BufferOverflowException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         if (position > writeLimit())
             throw writePositionTooLarge(position);
 
@@ -307,6 +330,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> readSkip(long bytesToSkip)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         if (lenient) {
             bytesToSkip = Math.min(bytesToSkip, readRemaining());
         }
@@ -316,11 +340,13 @@ public abstract class AbstractBytes<U>
 
     @Override
     public void uncheckedReadSkipOne() {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         readPosition++;
     }
 
     @Override
     public void uncheckedReadSkipBackOne() {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         readPosition--;
     }
 
@@ -328,6 +354,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeSkip(long bytesToSkip)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         final long writePos = writePosition();
         writeCheckOffset(writePos, bytesToSkip);
         uncheckedWritePosition(writePos + bytesToSkip);
@@ -338,6 +365,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeLimit(@NonNegative long limit)
             throws BufferOverflowException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         if (limit < start()) {
             throw writeLimitTooSmall(limit);
         }
@@ -361,6 +389,7 @@ public abstract class AbstractBytes<U>
 
     @Override
     protected void performRelease() {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         try {
             this.bytesStore.release(this);
         } catch (IllegalStateException e) {
@@ -371,6 +400,7 @@ public abstract class AbstractBytes<U>
     @Override
     public int readUnsignedByte()
             throws IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         try {
             long offset = readOffsetPositionMoved(1);
             return bytesStore.readUnsignedByte(offset);
@@ -383,11 +413,13 @@ public abstract class AbstractBytes<U>
     @Override
     public int readUnsignedByte(@NonNegative long offset)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         return readByte(offset) & 0xFF;
     }
 
     @Override
     public int uncheckedReadUnsignedByte() {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         try {
             int unsignedByte = bytesStore.readUnsignedByte(readPosition);
             readPosition++;
@@ -400,6 +432,7 @@ public abstract class AbstractBytes<U>
     @Override
     public byte readByte()
             throws IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         try {
             long offset = readOffsetPositionMoved(1);
             return bytesStore.readByte(offset);
@@ -415,6 +448,7 @@ public abstract class AbstractBytes<U>
     @Override
     public int peekUnsignedByte()
             throws IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         try {
             return readPosition >= writePosition() ? -1 : bytesStore.readUnsignedByte(readPosition);
         } catch (BufferUnderflowException e) {
@@ -425,6 +459,7 @@ public abstract class AbstractBytes<U>
     @Override
     public short readShort()
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         try {
             long offset = readOffsetPositionMoved(2);
             return bytesStore.readShort(offset);
@@ -439,6 +474,7 @@ public abstract class AbstractBytes<U>
     @Override
     public int readInt()
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         try {
             long offset = readOffsetPositionMoved(4);
             return bytesStore.readInt(offset);
@@ -453,6 +489,7 @@ public abstract class AbstractBytes<U>
     @Override
     public byte readVolatileByte(@NonNegative long offset)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         readCheckOffset(offset, 1, true);
         return bytesStore.readVolatileByte(offset);
     }
@@ -460,6 +497,7 @@ public abstract class AbstractBytes<U>
     @Override
     public short readVolatileShort(@NonNegative long offset)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         readCheckOffset(offset, 2, true);
         return bytesStore.readVolatileShort(offset);
     }
@@ -467,6 +505,7 @@ public abstract class AbstractBytes<U>
     @Override
     public int readVolatileInt(@NonNegative long offset)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         readCheckOffset(offset, 4, true);
         return bytesStore.readVolatileInt(offset);
     }
@@ -474,6 +513,7 @@ public abstract class AbstractBytes<U>
     @Override
     public long readVolatileLong(@NonNegative long offset)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         readCheckOffset(offset, 8, true);
         return bytesStore.readVolatileLong(offset);
     }
@@ -481,6 +521,7 @@ public abstract class AbstractBytes<U>
     @Override
     public long readLong()
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         try {
             long offset = readOffsetPositionMoved(8);
             return bytesStore.readLong(offset);
@@ -495,6 +536,7 @@ public abstract class AbstractBytes<U>
     @Override
     public float readFloat()
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         try {
             long offset = readOffsetPositionMoved(4);
             return bytesStore.readFloat(offset);
@@ -509,6 +551,7 @@ public abstract class AbstractBytes<U>
     @Override
     public double readDouble()
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         try {
             long offset = readOffsetPositionMoved(8);
             return bytesStore.readDouble(offset);
@@ -523,6 +566,7 @@ public abstract class AbstractBytes<U>
     @Override
     public int readVolatileInt()
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         try {
             long offset = readOffsetPositionMoved(4);
             return bytesStore.readVolatileInt(offset);
@@ -537,6 +581,7 @@ public abstract class AbstractBytes<U>
     @Override
     public long readVolatileLong()
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         try {
             long offset = readOffsetPositionMoved(8);
             return bytesStore.readVolatileLong(offset);
@@ -550,6 +595,7 @@ public abstract class AbstractBytes<U>
 
     protected long readOffsetPositionMoved(@NonNegative long adding)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = readPosition;
         readCheckOffset(readPosition, Math.toIntExact(adding), false);
         readPosition += adding;
@@ -561,6 +607,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeByte(@NonNegative long offset, byte i)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         writeCheckOffset(offset, 1);
         bytesStore.writeByte(offset, i);
         return this;
@@ -570,6 +617,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeShort(@NonNegative long offset, short i)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         writeCheckOffset(offset, 2);
         bytesStore.writeShort(offset, i);
         return this;
@@ -579,6 +627,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeInt(@NonNegative long offset, int i)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         writeCheckOffset(offset, 4);
         bytesStore.writeInt(offset, i);
         return this;
@@ -588,6 +637,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeOrderedInt(@NonNegative long offset, int i)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         writeCheckOffset(offset, 4);
         bytesStore.writeOrderedInt(offset, i);
         return this;
@@ -597,6 +647,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeLong(@NonNegative long offset, long i)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         writeCheckOffset(offset, 8);
         bytesStore.writeLong(offset, i);
         return this;
@@ -606,6 +657,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeOrderedLong(@NonNegative long offset, long i)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         writeCheckOffset(offset, 8);
         bytesStore.writeOrderedLong(offset, i);
         return this;
@@ -615,6 +667,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeFloat(@NonNegative long offset, float d)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         writeCheckOffset(offset, 4);
         bytesStore.writeFloat(offset, d);
         return this;
@@ -624,6 +677,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeDouble(@NonNegative long offset, double d)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         writeCheckOffset(offset, 8);
         bytesStore.writeDouble(offset, d);
         return this;
@@ -633,6 +687,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeVolatileByte(@NonNegative long offset, byte i8)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         writeCheckOffset(offset, 1);
         bytesStore.writeVolatileByte(offset, i8);
         return this;
@@ -642,6 +697,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeVolatileShort(@NonNegative long offset, short i16)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         writeCheckOffset(offset, 2);
         bytesStore.writeVolatileShort(offset, i16);
         return this;
@@ -651,6 +707,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeVolatileInt(@NonNegative long offset, int i32)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         writeCheckOffset(offset, 4);
         bytesStore.writeVolatileInt(offset, i32);
         return this;
@@ -660,6 +717,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeVolatileLong(@NonNegative long offset, long i64)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         writeCheckOffset(offset, 8);
         bytesStore.writeVolatileLong(offset, i64);
         return this;
@@ -670,6 +728,7 @@ public abstract class AbstractBytes<U>
     public Bytes<U> write(@NotNull final RandomDataInput bytes)
             throws IllegalStateException, BufferOverflowException {
         assert bytes != this : "you should not write to yourself !";
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
 
         try {
             return write(bytes, bytes.readPosition(), Math.min(writeLimit() - writePosition(), bytes.readRemaining()));
@@ -684,6 +743,7 @@ public abstract class AbstractBytes<U>
                           final byte[] byteArray,
                           @NonNegative int offset,
                           @NonNegative final int length) throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         requireNonNegative(offsetInRDO);
         requireNonNull(byteArray);
         requireNonNegative(offset);
@@ -703,6 +763,7 @@ public abstract class AbstractBytes<U>
     @Override
     public void write(@NonNegative long offsetInRDO, @NotNull ByteBuffer bytes, @NonNegative int offset, @NonNegative int length)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         requireNonNull(bytes);
         if (this.bytesStore.inside(offsetInRDO, length)) {
             writeCheckOffset(offsetInRDO, length);
@@ -730,7 +791,7 @@ public abstract class AbstractBytes<U>
     @NotNull
     public Bytes<U> write(@NonNegative long writeOffset, @NotNull RandomDataInput bytes, @NonNegative long readOffset, @NonNegative long length)
             throws BufferOverflowException, BufferUnderflowException, IllegalStateException {
-
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         requireNonNegative(writeOffset);
         ReferenceCountedUtil.throwExceptionIfReleased(bytes);
         requireNonNegative(readOffset);
@@ -750,6 +811,7 @@ public abstract class AbstractBytes<U>
 
     @Override
     public @NotNull Bytes<U> write8bit(@NotNull String text, @NonNegative int start, @NonNegative int length) throws BufferOverflowException, IndexOutOfBoundsException, ArithmeticException, IllegalStateException, BufferUnderflowException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         requireNonNull(text); // This needs to be checked or else the JVM might crash
         final long toWriteLength = UnsafeMemory.INSTANCE.stopBitLength(length) + (long) length;
         final long position = writeOffsetPositionMoved(toWriteLength, 0);
@@ -759,6 +821,7 @@ public abstract class AbstractBytes<U>
     }
 
     public @NotNull Bytes<U> write8bit(@Nullable BytesStore bs) throws BufferOverflowException, IllegalStateException, BufferUnderflowException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         if (bs == null) {
             BytesInternal.writeStopBitNeg1(this);
             return this;
@@ -773,16 +836,19 @@ public abstract class AbstractBytes<U>
 
     @Override
     public long write8bit(@NonNegative long position, @NotNull BytesStore bs) {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         return bytesStore.write8bit(position, bs);
     }
 
     @Override
     public long write8bit(@NonNegative long position, @NotNull String s, @NonNegative int start, @NonNegative int length) {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         return bytesStore.write8bit(position, s, start, length);
     }
 
     protected void writeCheckOffset(@NonNegative long offset, @NonNegative long adding)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         if (BYTES_BOUNDS_UNCHECKED)
             return;
         writeCheckOffset0(offset, adding);
@@ -790,6 +856,7 @@ public abstract class AbstractBytes<U>
 
     private void writeCheckOffset0(@NonNegative long offset, @NonNegative long adding)
             throws DecoratedBufferOverflowException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         final long start = start();
         if (offset < start || offset + adding < start) {
             throw newBOELower(offset);
@@ -813,6 +880,7 @@ public abstract class AbstractBytes<U>
     @Override
     public byte readByte(@NonNegative long offset)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         readCheckOffset(offset, 1, true);
         return bytesStore.readByte(offset);
     }
@@ -820,12 +888,14 @@ public abstract class AbstractBytes<U>
     @Override
     public int peekUnsignedByte(@NonNegative long offset)
             throws IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         return offset < start() || readLimit() <= offset ? -1 : bytesStore.peekUnsignedByte(offset);
     }
 
     @Override
     public short readShort(@NonNegative long offset)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         readCheckOffset(offset, 2, true);
         return bytesStore.readShort(offset);
     }
@@ -833,6 +903,7 @@ public abstract class AbstractBytes<U>
     @Override
     public int readInt(@NonNegative long offset)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         readCheckOffset(offset, 4, true);
         return bytesStore.readInt(offset);
     }
@@ -840,6 +911,7 @@ public abstract class AbstractBytes<U>
     @Override
     public long readLong(@NonNegative long offset)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         readCheckOffset(offset, 8, true);
         return bytesStore.readLong(offset);
     }
@@ -847,6 +919,7 @@ public abstract class AbstractBytes<U>
     @Override
     public float readFloat(@NonNegative long offset)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         readCheckOffset(offset, 4, true);
         return bytesStore.readFloat(offset);
     }
@@ -854,6 +927,7 @@ public abstract class AbstractBytes<U>
     @Override
     public double readDouble(@NonNegative long offset)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         readCheckOffset(offset, 8, true);
         return bytesStore.readDouble(offset);
     }
@@ -867,6 +941,7 @@ public abstract class AbstractBytes<U>
 
     private void readCheckOffset0(@NonNegative long offset, long adding, boolean given)
             throws DecoratedBufferUnderflowException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         if (offset < start()) {
             throw newBOEReadLower(offset);
         }
@@ -897,6 +972,7 @@ public abstract class AbstractBytes<U>
 
     private void prewriteCheckOffset0(@NonNegative long offset, long subtracting)
             throws BufferOverflowException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         if ((offset - subtracting) < start()) {
             throw newBOERange(offset, subtracting, "prewriteCheckOffset0 failed. Offset: %d - subtracting: %d < start: %d", start());
         }
@@ -911,6 +987,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeByte(byte i8)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = writeOffsetPositionMoved(1, 1);
         bytesStore.writeByte(offset, i8);
         return this;
@@ -920,6 +997,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> prewrite(final byte[] bytes)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = prewriteOffsetPositionMoved(bytes.length);
         bytesStore.write(offset, bytes);
         return this;
@@ -929,6 +1007,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> prewrite(@NotNull BytesStore bytes)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = prewriteOffsetPositionMoved(bytes.readRemaining());
         bytesStore.write(offset, bytes);
         return this;
@@ -938,6 +1017,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> prewriteByte(byte i8)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = prewriteOffsetPositionMoved(1);
         bytesStore.writeByte(offset, i8);
         return this;
@@ -947,6 +1027,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> prewriteInt(int i)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = prewriteOffsetPositionMoved(4);
         bytesStore.writeInt(offset, i);
         return this;
@@ -956,6 +1037,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> prewriteShort(short i)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = prewriteOffsetPositionMoved(2);
         bytesStore.writeShort(offset, i);
         return this;
@@ -965,6 +1047,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> prewriteLong(long l)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = prewriteOffsetPositionMoved(8);
         bytesStore.writeLong(offset, l);
         return this;
@@ -977,6 +1060,7 @@ public abstract class AbstractBytes<U>
 
     protected long writeOffsetPositionMoved(@NonNegative long adding, @NonNegative long advance)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long oldPosition = writePosition();
         writeCheckOffset(oldPosition, adding);
         uncheckedWritePosition(writePosition() + advance);
@@ -984,11 +1068,13 @@ public abstract class AbstractBytes<U>
     }
 
     protected void uncheckedWritePosition(@NonNegative long writePosition) {
+        // No assert of thread safety here needed
         this.writePosition = writePosition;
     }
 
     protected long prewriteOffsetPositionMoved(@NonNegative long subtracting)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         prewriteCheckOffset(readPosition, subtracting);
         readPosition -= subtracting;
         return readPosition;
@@ -998,6 +1084,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeShort(short i16)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = writeOffsetPositionMoved(2);
         bytesStore.writeShort(offset, i16);
         return this;
@@ -1007,6 +1094,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeInt(int i)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = writeOffsetPositionMoved(4);
         bytesStore.writeInt(offset, i);
         return this;
@@ -1016,6 +1104,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeIntAdv(int i, @NonNegative int advance)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = writeOffsetPositionMoved(4, advance);
         bytesStore.writeInt(offset, i);
         return this;
@@ -1025,6 +1114,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeLong(long i64)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = writeOffsetPositionMoved(8);
         bytesStore.writeLong(offset, i64);
         return this;
@@ -1034,6 +1124,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeLongAdv(long i64, @NonNegative int advance)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = writeOffsetPositionMoved(8, advance);
         bytesStore.writeLong(offset, i64);
         return this;
@@ -1043,6 +1134,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeFloat(float f)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = writeOffsetPositionMoved(4);
         bytesStore.writeFloat(offset, f);
         return this;
@@ -1052,6 +1144,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeDouble(double d)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = writeOffsetPositionMoved(8);
         bytesStore.writeDouble(offset, d);
         return this;
@@ -1061,6 +1154,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeDoubleAndInt(double d, int i)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = writeOffsetPositionMoved(12);
         bytesStore.writeDouble(offset, d);
         bytesStore.writeInt(offset + 8, i);
@@ -1069,6 +1163,7 @@ public abstract class AbstractBytes<U>
 
     @Override
     public int read(byte[] bytes, @NonNegative int off, @NonNegative int len) throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         requireNonNull(bytes);
         long remaining = readRemaining();
         if (remaining <= 0)
@@ -1088,6 +1183,7 @@ public abstract class AbstractBytes<U>
 
     @Override
     public long read(@NonNegative long offsetInRDI, byte[] bytes, @NonNegative int offset, @NonNegative int length) throws IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return bytesStore.read(offsetInRDI, bytes, offset, length);
     }
 
@@ -1096,6 +1192,7 @@ public abstract class AbstractBytes<U>
     public Bytes<U> write(final byte[] byteArray,
                           @NonNegative final int offset,
                           @NonNegative final int length) throws BufferOverflowException, IllegalStateException, IllegalArgumentException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         requireNonNegative(offset);
         requireNonNegative(length);
         if ((length + offset) > byteArray.length) {
@@ -1126,6 +1223,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeSome(@NotNull ByteBuffer buffer)
             throws BufferOverflowException, IllegalStateException, BufferUnderflowException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         int length = (int) Math.min(buffer.remaining(), writeRemaining());
         try {
             ensureCapacity(writePosition() + length);
@@ -1142,6 +1240,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeOrderedInt(int i)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = writeOffsetPositionMoved(4);
         bytesStore.writeOrderedInt(offset, i);
         return this;
@@ -1151,6 +1250,7 @@ public abstract class AbstractBytes<U>
     @Override
     public Bytes<U> writeOrderedLong(long i)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         long offset = writeOffsetPositionMoved(8);
         bytesStore.writeOrderedLong(offset, i);
         return this;
@@ -1160,6 +1260,7 @@ public abstract class AbstractBytes<U>
     public long addressForRead(@NonNegative long offset)
             throws BufferUnderflowException, IllegalStateException {
         replaceByteStoreIfEmpty();
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return bytesStore.addressForRead(offset);
     }
 
@@ -1167,6 +1268,7 @@ public abstract class AbstractBytes<U>
     public long addressForWrite(@NonNegative long offset)
             throws BufferOverflowException, IllegalStateException {
         replaceByteStoreIfEmpty();
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return bytesStore.addressForWrite(offset);
     }
 
@@ -1174,22 +1276,26 @@ public abstract class AbstractBytes<U>
     public long addressForWritePosition()
             throws BufferOverflowException, IllegalStateException {
         replaceByteStoreIfEmpty();
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return bytesStore.addressForWrite(writePosition());
     }
 
     @Override
     public int hashCode() {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return HashCodeEqualsUtil.hashCode(this);
     }
 
     @Override
     public boolean equals(Object obj) {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return obj instanceof BytesStore && BytesInternal.contentEqual(this, (BytesStore) obj);
     }
 
     @NotNull
     @Override
     public String toString() {
+        // We do not check thread safety for toString as this might blow up debuggers etc.
         // Reserving prevents illegal access to this Bytes object if released by another thread
         final ReferenceOwner toStringOwner = ReferenceOwner.temporary("toString");
         reserve(toStringOwner);
@@ -1205,42 +1311,53 @@ public abstract class AbstractBytes<U>
     @Override
     public void nativeRead(@NonNegative long position, long address, @NonNegative long size)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         bytesStore.nativeRead(position, address, size);
     }
 
     @Override
     public void nativeWrite(long address, @NonNegative long position, @NonNegative long size)
             throws BufferOverflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         bytesStore.nativeWrite(address, position, size);
     }
 
     @NotNull
     @Override
     public BytesStore bytesStore() {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         return bytesStore;
     }
 
-    protected void bytesStore(BytesStore<Bytes<U>, U> bytesStore) {
-        this.bytesStore = bytesStore;
+    protected void bytesStore(@NotNull final BytesStore<Bytes<U>, U> bytesStore) {
+        if (!isElastic()) {
+            throw new IllegalStateException("Attempting to set byteStore on a Bytes instance that is not elastic: " + getClass().getName());
+        }
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
+        this.bytesStore = requireNonNull(bytesStore);
     }
 
     @Override
     public int lastDecimalPlaces() {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return lastDecimalPlaces;
     }
 
     @Override
     public void lastDecimalPlaces(int lastDecimalPlaces) {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         this.lastDecimalPlaces = Math.max(0, lastDecimalPlaces);
     }
 
     @Override
     public boolean lastNumberHadDigits() {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return lastNumberHadDigits;
     }
 
     @Override
     public void lastNumberHadDigits(boolean lastNumberHadDigits) {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         this.lastNumberHadDigits = lastNumberHadDigits;
     }
 
@@ -1256,23 +1373,27 @@ public abstract class AbstractBytes<U>
 
     @Override
     public void lenient(boolean lenient) {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         this.lenient = lenient;
     }
 
     @Override
     public boolean lenient() {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return lenient;
     }
 
     @Override
     public int byteCheckSum()
             throws IORuntimeException, BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return byteCheckSum(readPosition(), readLimit());
     }
 
     @Override
     public int byteCheckSum(@NonNegative long start, @NonNegative long end)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         if (end < Integer.MAX_VALUE && isDirectMemory())
             return byteCheckSum((int) start, (int) end);
         return Bytes.super.byteCheckSum(start, end);
@@ -1282,6 +1403,7 @@ public abstract class AbstractBytes<U>
     public boolean startsWith(@Nullable final BytesStore bytesStore) throws IllegalStateException {
         // This class implements HasUncheckedRandomDataInput, so we could potentially use
         // the unchecked version of startsWith
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         return bytesStore != null && BytesInternal.startsWithUnchecked(this, bytesStore);
     }
 
@@ -1294,27 +1416,32 @@ public abstract class AbstractBytes<U>
 
         @Override
         public byte readByte(@NonNegative long offset) {
+            assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
             return bytesStore.readByte(offset);
         }
 
         @Override
         public short readShort(@NonNegative long offset) {
+            assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
             return bytesStore.readShort(offset);
         }
 
         @Override
         public int readInt(@NonNegative long offset) {
+            assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
             return bytesStore.readInt(offset);
         }
 
         @Override
         public long readLong(@NonNegative long offset) {
+            assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
             return bytesStore.readLong(offset);
         }
     }
 
     public int byteCheckSum(@NonNegative int start, @NonNegative int end)
             throws BufferUnderflowException, IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || !isElastic() || threadSafetyCheck(true);
         int sum = 0;
         for (int i = start; i < end; i++) {
             sum += readByte(i);

@@ -17,6 +17,7 @@
  */
 package net.openhft.chronicle.bytes.internal;
 
+import net.openhft.chronicle.assertions.AssertUtil;
 import net.openhft.chronicle.bytes.*;
 import net.openhft.chronicle.core.Jvm;
 import net.openhft.chronicle.core.Memory;
@@ -211,17 +212,22 @@ public abstract class CommonMappedBytes extends MappedBytes {
 
     @NotNull
     @Override
-    public Bytes<Void> clear()
+    public final Bytes<Void> clear()
             throws IllegalStateException {
+        assert AssertUtil.SKIP_ASSERTIONS || threadSafetyCheck(true);
         // Typically, only used at the start of an operation so reject if closed.
         throwExceptionIfClosed();
+        return clear0();
+    }
 
-        long start = 0L;
+    protected Bytes<Void> clear0() {
+        final long start = 0L;
         readPosition = start;
         uncheckedWritePosition(start);
         writeLimit = capacity;
         return this;
     }
+
 
     @Override
     protected void performRelease() {
@@ -570,6 +576,11 @@ public abstract class CommonMappedBytes extends MappedBytes {
     public CommonMappedBytes disableThreadSafetyCheck(boolean disableThreadSafetyCheck) {
         closeable.disableThreadSafetyCheck(disableThreadSafetyCheck);
         return this;
+    }
+
+    @Override
+    protected boolean threadSafetyCheck(boolean isUsed) throws IllegalStateException {
+        return closeable.disableThreadSafetyCheck() || super.threadSafetyCheck(isUsed);
     }
 
     @NotNull

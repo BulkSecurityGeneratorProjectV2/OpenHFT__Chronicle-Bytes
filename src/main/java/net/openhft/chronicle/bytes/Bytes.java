@@ -358,6 +358,9 @@ public interface Bytes<U> extends
      * <p>
      * The returned Bytes is ready for reading.
      * <p>
+     * The returned Bytes will be used by the thread invoking the method and so it cannot be used
+     * by any other thread directly.
+     * <p>
      * Method for convenience only - might not be ideal for performance (creates garbage).
      * To avoid garbage, use something like this example:
      * <pre>{@code

@@ -34,6 +34,7 @@ import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 
 import static org.junit.Assert.*;
@@ -530,35 +531,45 @@ public class MappedBytesTest extends BytesTestCommon {
 
     @Test
     public void disableThreadSafety() throws InterruptedException {
-        Thread t = null;
-        try {
-            BlockingQueue<MappedBytes> tq = new LinkedBlockingQueue<>();
-            t = new Thread(() -> {
-                try {
-                    MappedBytes bytes = MappedBytes.mappedBytes(IOTools.createTempFile("disableThreadSafety"), 64 << 10);
-                    bytes.writeLong(128);
-                    tq.add(bytes);
-                    Jvm.pause(1000);
-                } catch (IOException ioe) {
-                    ioe.printStackTrace();
-                    // cause the caller to fail.
-                    ((Queue) tq).add(ioe);
-                }
-            });
-            t.start();
-            try (MappedBytes bytes = tq.take()) {
-                try {
-                    bytes.writeLong(1234);
-                    fail();
-                } catch (IllegalStateException expected) {
-//                expected.printStackTrace();
-                }
-                bytes.disableThreadSafetyCheck(true)
-                        .writeLong(-1);
+
+        final AtomicBoolean threadCanDie = new AtomicBoolean();
+        final AtomicBoolean threadReachedWait = new AtomicBoolean();
+        final Thread mainThread = Thread.currentThread();
+
+        BlockingQueue<MappedBytes> tq = new LinkedBlockingQueue<>();
+        Thread t = new Thread(() -> {
+            final Thread mThread = mainThread;
+            final Thread tThread = Thread.currentThread();
+            try {
+                MappedBytes bytes = MappedBytes.mappedBytes(IOTools.createTempFile("disableThreadSafety"), 64 << 10);
+                bytes.writeLong(128);
+                tq.add(bytes);
+                threadReachedWait.set(true);
+                waitOn(threadCanDie);
+            } catch (IOException ioe) {
+                ioe.printStackTrace();
             }
-        } finally {
-            t.interrupt();
-            t.join(Jvm.isDebug() ? 60_000 : 1000);
+        }, "initialThread");
+        t.start();
+        waitOn(threadReachedWait);
+        try (MappedBytes bytes = tq.remove()) {
+            try {
+                bytes.writeLong(1234);
+                fail();
+            } catch (IllegalStateException expected) {
+                // Do nothing
+            }
+            bytes.disableThreadSafetyCheck(true);
+            bytes.writeLong(-1);
+        }
+        threadCanDie.set(true);
+        t.join(Jvm.isDebug() ? 60_000 : 1000);
+    }
+
+    private static void waitOn(AtomicBoolean ab) {
+        while (!ab.get()) {
+            Jvm.pause(1);
         }
     }
+
 }

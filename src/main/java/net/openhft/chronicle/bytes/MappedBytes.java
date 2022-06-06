@@ -101,7 +101,8 @@ public abstract class MappedBytes extends AbstractBytes<Void> implements Closeab
             throws FileNotFoundException, IllegalStateException {
         final MappedFile rw = MappedFile.of(file, chunkSize, overlapSize, false);
         try {
-            return mappedBytes(rw);
+            final MappedBytes mappedBytes = mappedBytes(rw);
+            return mappedBytes;
         } finally {
             rw.release(INIT);
         }

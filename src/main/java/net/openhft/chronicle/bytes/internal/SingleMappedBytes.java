@@ -54,7 +54,7 @@ public class SingleMappedBytes extends CommonMappedBytes {
         super(mappedFile, name);
 
         try {
-            bytesStore((BytesStore<Bytes<Void>, Void>) (BytesStore<?, Void>) mappedFile.acquireByteStore(this, 0));
+            this.bytesStore = (BytesStore<Bytes<Void>, Void>) (BytesStore<?, Void>) mappedFile.acquireByteStore(this, 0);
             assert this.bytesStore.reservedBy(this);
 
         } catch (@NotNull IOException e) {
@@ -188,9 +188,8 @@ public class SingleMappedBytes extends CommonMappedBytes {
 
     @NotNull
     @Override
-    public Bytes<Void> clear()
-            throws IllegalStateException {
-        long start = 0L;
+    public Bytes<Void> clear0() {
+        final long start = 0L;
         readPosition = start;
         uncheckedWritePosition(start);
         writeLimit = mappedFile.capacity();
