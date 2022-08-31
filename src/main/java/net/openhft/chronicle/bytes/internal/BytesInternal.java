@@ -1626,12 +1626,12 @@ enum BytesInternal {
         requireNonNull(sb);
         ReferenceOwner toString = temporary("toString");
         bytes.reserve(toString);
-        long start = bytes.readPosition();
-        assert bytes.start() <= start;
-        assert start <= bytes.readLimit();
-        int length = Math.toIntExact(bytes.realReadRemaining());
-
         try {
+            int length = Math.toIntExact(bytes.realReadRemaining());
+            if (length <= 0)
+                return;
+            long start = Math.max(bytes.readPosition(), bytes.start());
+
             for (int i = 0; i < length; i++) {
                 sb.append((char) bytes.readUnsignedByte(start + i));
             }

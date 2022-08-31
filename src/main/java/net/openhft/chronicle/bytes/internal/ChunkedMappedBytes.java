@@ -253,6 +253,11 @@ public class ChunkedMappedBytes extends CommonMappedBytes {
     }
 
     @Override
+    public long start() {
+        return 0L;
+    }
+
+    @Override
     protected void writeCheckOffset(final @NonNegative long offset, final @NonNegative long adding)
             throws BufferOverflowException, IllegalStateException {
 

@@ -84,7 +84,7 @@ public class MappedBytesStore extends NativeBytesStore<Void> {
     public @NotNull Bytes<Void> bytesForRead()
             throws IllegalStateException {
         try {
-            return new NativeBytes<Void>(this)
+            return new MBSBytes(this)
                     .readLimit(writeLimit())
                     .readPosition(start());
         } catch (BufferUnderflowException | IllegalArgumentException e) {
@@ -98,9 +98,20 @@ public class MappedBytesStore extends NativeBytesStore<Void> {
             throws IllegalStateException {
         writeCheck.run();
         try {
-            return new NativeBytes<>(this);
+            return new MBSBytes(this);
         } catch (IllegalArgumentException e) {
             throw new AssertionError(e);
+        }
+    }
+
+    static class MBSBytes extends NativeBytes<Void> {
+        public MBSBytes(@NotNull BytesStore store) throws IllegalStateException, IllegalArgumentException {
+            super(store);
+        }
+
+        @Override
+        public long start() {
+            return bytesStore.start();
         }
     }
 

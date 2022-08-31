@@ -160,6 +160,7 @@ public class MappedMemoryTest extends BytesTestCommon {
                     assertEquals(text, textValue.substring(pos + 1));
                     assertEquals(2, bytes.refCount());
                 } finally {
+                    bytes.clear();
                     bytes.release(test);
                     assertEquals(1, bytes.refCount());
                 }

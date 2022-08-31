@@ -108,7 +108,7 @@ interface RandomCommon extends ReferenceCounted {
      * @return how much can be safely read directly.
      */
     default long realReadRemaining() {
-        return Math.min(realCapacity(), readLimit()) - readPosition();
+        return Math.min(realCapacity(), readLimit()) - Math.max(start(), readPosition());
     }
 
     /**

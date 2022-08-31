@@ -197,11 +197,6 @@ public abstract class CommonMappedBytes extends MappedBytes {
         return this;
     }
 
-    @Override
-    public @NonNegative long start() {
-        return 0L;
-    }
-
     @NotNull
     @Override
     public Bytes<Void> writePosition(@NonNegative final long position)

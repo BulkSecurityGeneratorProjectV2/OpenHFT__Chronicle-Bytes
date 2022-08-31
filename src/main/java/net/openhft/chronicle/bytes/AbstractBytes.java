@@ -196,7 +196,8 @@ public abstract class AbstractBytes<U>
     @NonNegative
     @Override
     public long start() {
-        return bytesStore.start();
+        assert bytesStore.start() == 0;
+        return 0;
     }
 
     @Override
@@ -1230,15 +1231,13 @@ public abstract class AbstractBytes<U>
     @NotNull
     @Override
     public String toString() {
-        // Reserving prevents illegal access to this Bytes object if released by another thread
-        final ReferenceOwner toStringOwner = ReferenceOwner.temporary("toString");
-        reserve(toStringOwner);
+        if (readRemaining() == 0)
+            return "";
         try {
+            // the following method will reserve this
             return BytesInternal.toString(this);
         } catch (Exception e) {
             return e.toString();
-        } finally {
-            release(toStringOwner);
         }
     }
 
